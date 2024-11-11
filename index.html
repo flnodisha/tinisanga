@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PDF Viewer</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* Wrapper for panning */
+        #pan-wrapper {
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Enable touch scrolling and scaling */
+        #pdf-container {
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.2s ease;
+        }
+
+        .pdf-page {
+            max-width: 100%;
+            height: auto;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="pan-wrapper">
+        <div id="pdf-container"></div>
+    </div>
+
+    <script>
+        const container = document.getElementById('pdf-container');
+        const wrapper = document.getElementById('pan-wrapper');
+        const totalPages = 11; // Set this to the total number of pages in your PDF
+
+        // Load images dynamically
+        for (let i = 1; i <= totalPages; i++) {
+            const img = document.createElement('img');
+            img.src = `102_${i}.webp`; // Replace with your image file names
+            img.alt = `Page ${i}`;
+            img.className = 'pdf-page';
+            container.appendChild(img);
+        }
+
+        // Pinch-to-zoom and pan functionality
+        let currentScale = 1;
+        let startDist = 0;
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        let translateX = 0;
+        let translateY = 0;
+
+        wrapper.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                startDist = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                );
+            } else if (e.touches.length === 1 && currentScale > 1) {
+                // Start panning with one finger if zoomed in
+                isDragging = true;
+                startX = e.touches[0].pageX - translateX;
+                startY = e.touches[0].pageY - translateY;
+            }
+        });
+
+        wrapper.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2) {
+                const currentDist = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                );
+
+                const scaleChange = currentDist / startDist;
+                const newScale = Math.min(3, Math.max(1, currentScale * scaleChange));
+
+                if (newScale >= 1) {
+                    currentScale = newScale;
+                    container.style.transform = `scale(${currentScale}) translate(${translateX}px, ${translateY}px)`;
+                    e.preventDefault();
+                }
+            } else if (isDragging && e.touches.length === 1) {
+                // Update translation based on finger movement for panning
+                translateX = e.touches[0].pageX - startX;
+                translateY = e.touches[0].pageY - startY;
+                container.style.transform = `scale(${currentScale}) translate(${translateX}px, ${translateY}px)`;
+                e.preventDefault();
+            }
+        });
+
+        wrapper.addEventListener('touchend', () => {
+            startDist = 0;
+            isDragging = false;
+        });
+
+        // Double-tap zoom functionality
+        let lastTap = 0;
+        wrapper.addEventListener('click', (e) => {
+            const currentTime = new Date().getTime();
+            const tapGap = currentTime - lastTap;
+
+            if (tapGap < 300 && tapGap > 0) {
+                if (currentScale === 1) {
+                    currentScale = 2;
+                } else {
+                    currentScale = 1;
+                    translateX = 0;
+                    translateY = 0;
+                }
+                container.style.transform = `scale(${currentScale}) translate(${translateX}px, ${translateY}px)`;
+            }
+
+            lastTap = currentTime;
+        });
+    </script>
+</body>
+</html>
