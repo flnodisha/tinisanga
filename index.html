@@ -12,6 +12,20 @@
             height: 100%;
             overflow: hidden;
         }
+        .header {
+  background-color: #87CEEB; /* Sky blue color */
+  padding: 16px;
+  text-align: right;
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: fixed;
+  width: 100%;
+  top: 0;
+  right: 0;
+  z-index: 999; /* Higher z-index to stay above other content */
+}
 
         /* Wrapper for panning */
         #pan-wrapper {
@@ -43,6 +57,9 @@
     </style>
 </head>
 <body>
+    <div class="header">
+        FLN Odisha
+      </div>
     <div id="pan-wrapper">
         <div id="pdf-container"></div>
     </div>
