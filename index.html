@@ -2,153 +2,92 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PDF Viewer</title>
+    <title>Scrollable PDF Viewer</title>
     <style>
-        body, html {
+        html, body {
             margin: 0;
             padding: 0;
-            width: 100%;
             height: 100%;
             overflow: hidden;
         }
-        .header {
-  background-color: #87CEEB; /* Sky blue color */
-  padding: 16px;
-  text-align: right;
-  color: white;
-  font-size: 20px;
-  font-weight: bold;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  position: fixed;
-  width: 100%;
-  top: 0;
-  right: 0;
-  z-index: 999; /* Higher z-index to stay above other content */
-}
-
-        /* Wrapper for panning */
-        #pan-wrapper {
-            width: 100%;
-            height: 100vh;
-            overflow: hidden;
-            touch-action: none;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        /* Enable touch scrolling and scaling */
         #pdf-container {
-            width: 100%;
+            width: 95%;
             height: 100%;
-            overflow-y: auto;
+            margin: 0 auto;
+            position: relative;
+            background-color: #525659;
+        }
+        #pdf-render {
+            width: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
-            transition: transform 0.2s ease;
+            overflow-y: auto;
+            height: 100%;
+            padding: 20px 0;
         }
-
-        .pdf-page {
+        #pdf-render canvas {
             max-width: 100%;
-            height: auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        ତିନି ସାଙ୍ଗ
-      </div>
-    <div id="pan-wrapper">
-        <div id="pdf-container"></div>
+    <div id="pdf-container">
+        <div id="pdf-render"></div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script>
-        const container = document.getElementById('pdf-container');
-        const wrapper = document.getElementById('pan-wrapper');
-        const totalPages = 11; // Set this to the total number of pages in your PDF
+        class PDFViewer {
+            constructor() {
+                this.pdfContainer = document.getElementById('pdf-render');
+            }
 
-        // Load images dynamically
-        for (let i = 1; i <= totalPages; i++) {
-            const img = document.createElement('img');
-            img.src = `102_${i}.webp`; // Replace with your image file names
-            img.alt = `Page ${i}`;
-            img.className = 'pdf-page';
-            container.appendChild(img);
+            async loadPDF(url) {
+                try {
+                    // Configure PDF.js
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+                    // Load PDF
+                    const pdfDocument = await pdfjsLib.getDocument(url).promise;
+                    
+                    // Render all pages
+                    for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
+                        await this.renderPage(pdfDocument, pageNum);
+                    }
+                } catch (error) {
+                    console.error('PDF Loading Error:', error);
+                    this.pdfContainer.innerHTML = `<p>Error loading PDF: ${error.message}</p>`;
+                }
+            }
+
+            async renderPage(pdfDocument, pageNumber) {
+                const page = await pdfDocument.getPage(pageNumber);
+                
+                // Create canvas for page
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                this.pdfContainer.appendChild(canvas);
+
+                // Calculate viewport with default scale
+                const viewport = page.getViewport({ scale: 1.5 });
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                // Render page on canvas
+                const renderContext = {
+                    canvasContext: context,
+                    viewport: viewport
+                };
+                await page.render(renderContext);
+            }
         }
 
-        // Pinch-to-zoom and pan functionality
-        let currentScale = 1;
-        let startDist = 0;
-        let isDragging = false;
-        let startX = 0;
-        let startY = 0;
-        let translateX = 0;
-        let translateY = 0;
-
-        wrapper.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 2) {
-                startDist = Math.hypot(
-                    e.touches[0].pageX - e.touches[1].pageX,
-                    e.touches[0].pageY - e.touches[1].pageY
-                );
-            } else if (e.touches.length === 1 && currentScale > 1) {
-                // Start panning with one finger if zoomed in
-                isDragging = true;
-                startX = e.touches[0].pageX - translateX;
-                startY = e.touches[0].pageY - translateY;
-            }
-        });
-
-        wrapper.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 2) {
-                const currentDist = Math.hypot(
-                    e.touches[0].pageX - e.touches[1].pageX,
-                    e.touches[0].pageY - e.touches[1].pageY
-                );
-
-                const scaleChange = currentDist / startDist;
-                const newScale = Math.min(3, Math.max(1, currentScale * scaleChange));
-
-                if (newScale >= 1) {
-                    currentScale = newScale;
-                    container.style.transform = `scale(${currentScale}) translate(${translateX}px, ${translateY}px)`;
-                    e.preventDefault();
-                }
-            } else if (isDragging && e.touches.length === 1) {
-                // Update translation based on finger movement for panning
-                translateX = e.touches[0].pageX - startX;
-                translateY = e.touches[0].pageY - startY;
-                container.style.transform = `scale(${currentScale}) translate(${translateX}px, ${translateY}px)`;
-                e.preventDefault();
-            }
-        });
-
-        wrapper.addEventListener('touchend', () => {
-            startDist = 0;
-            isDragging = false;
-        });
-
-        // Double-tap zoom functionality
-        let lastTap = 0;
-        wrapper.addEventListener('click', (e) => {
-            const currentTime = new Date().getTime();
-            const tapGap = currentTime - lastTap;
-
-            if (tapGap < 300 && tapGap > 0) {
-                if (currentScale === 1) {
-                    currentScale = 2;
-                } else {
-                    currentScale = 1;
-                    translateX = 0;
-                    translateY = 0;
-                }
-                container.style.transform = `scale(${currentScale}) translate(${translateX}px, ${translateY}px)`;
-            }
-
-            lastTap = currentTime;
-        });
+        // Initialize PDF Viewer
+        const pdfViewer = new PDFViewer();
+        pdfViewer.loadPDF('tinisanga.pdf');
     </script>
 </body>
 </html>
